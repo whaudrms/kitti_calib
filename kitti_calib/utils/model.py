@@ -22,10 +22,14 @@ class CNN4CH(nn.Module):
         r = self.model(x)           # shape (B, 9)
         R = r.view(-1, 3, 3)
         U, _, Vh = torch.linalg.svd(R)
-        R_hat = U @ Vh
-        # Fix reflection
-        det = torch.det(R_hat)
-        U[:, :, -1] *= torch.sign(det).unsqueeze(1)
-        R_hat = U @ Vh
-        return R_hat
 
+        R_hat = U @ Vh
+
+        # Fix reflection safely (no in-place ops)
+        det = torch.det(R_hat)
+        sign = torch.sign(det).unsqueeze(1)         # shape (B, 1)
+        last_col = U[:, :, -1] * sign               # shape (B, 3)
+        U_fixed = torch.cat([U[:, :, :2], last_col.unsqueeze(2)], dim=2)
+
+        R_hat = U_fixed @ Vh
+        return R_hat
